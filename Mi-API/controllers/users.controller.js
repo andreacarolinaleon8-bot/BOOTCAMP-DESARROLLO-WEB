@@ -1,59 +1,84 @@
-
-const users = require('../models/users');
+const pool = require('../database/connection');
 
 // Consultar todos los usuarios
-const getUsers = (req, res) => {
-    res.json(users);
+const getUsers = async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM users ORDER BY id');
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al consultar usuarios' });
+    }
 };
 
 // Consultar un usuario por su ID
-const getUserById = (req, res) => {
-    const id = parseInt(req.params.id);
-    const user = users.find(user => user.id === id);
+const getUserById = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM users WHERE id = $1',
+            [req.params.id]
+        );
 
-    res.json(user);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al consultar usuario' });
+    }
 };
 
 // Agregar un usuario
-const createUser = (req, res) => {
+const createUser = async (req, res) => {
     const { nombre, apellido } = req.body;
 
-    const newUser = {
-        id: users.length + 1,
-        nombre,
-        apellido
-    };
+    try {
+        const result = await pool.query(
+            'INSERT INTO users (nombre, apellido) VALUES ($1, $2) RETURNING *',
+            [nombre, apellido]
+        );
 
-    users.push(newUser);
-    res.json(newUser);
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al agregar usuario' });
+    }
 };
 
 // Actualizar un usuario
-const updateUser = (req, res) => {
-    const id = parseInt(req.params.id);
+const updateUser = async (req, res) => {
     const { nombre, apellido } = req.body;
 
-    const user = users.find(user => user.id === id);
+    try {
+        const result = await pool.query(
+            'UPDATE users SET nombre = $1, apellido = $2 WHERE id = $3 RETURNING *',
+            [nombre, apellido, req.params.id]
+        );
 
-    if (user) {
-        user.nombre = nombre;
-        user.apellido = apellido;
-        res.json(user);
-    } else {
-        res.status(404).json({ mensaje: 'Usuario no encontrado' });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al actualizar usuario' });
     }
 };
 
 // Eliminar un usuario
-const deleteUser = (req, res) => {
-    const id = parseInt(req.params.id);
-    const index = users.findIndex(user => user.id === id);
+const deleteUser = async (req, res) => {
+    try {
+        const result = await pool.query(
+            'DELETE FROM users WHERE id = $1 RETURNING *',
+            [req.params.id]
+        );
 
-    if (index !== -1) {
-        users.splice(index, 1);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+        }
+
         res.json({ mensaje: 'Usuario eliminado' });
-    } else {
-        res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    } catch (error) {
+        res.status(500).json({ mensaje: 'Error al eliminar usuario' });
     }
 };
 
